@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cornflex"
+version = "1.0.0"
+authors = [
+  { name="Erik Bremstedt", email="erik.bremstedt@gmail.com" },
+]
+description = "simple sftp reader"
+readme = "README.md"
+requires-python = ">=3.11.0"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "croniter>0.3.0",
+  "paramiko>=3.0.0",
+  "polars>=0.20.0",
+  "chardet>=5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ebremstedt/cornflex"
+Issues = "https://github.com/ebremstedt/cornflex/issues"
