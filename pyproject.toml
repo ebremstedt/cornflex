@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cornflex"
-version = "1.0.1"
+version = "1.1.0"
 authors = [
   { name="Erik Bremstedt", email="erik.bremstedt@gmail.com" },
 ]
@@ -17,7 +17,6 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "croniter>0.3.0",
   "paramiko>=3.0.0",
   "polars>=0.20.0",
   "chardet>=5.0.0",
