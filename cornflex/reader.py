@@ -31,15 +31,6 @@ class SFTPReader:
         if not self.password and not self.pem_file:
             raise ValueError("Either password or pem_file must be provided")
 
-        if self.preferred_keys:
-            paramiko.Transport._preferred_keys = (
-                tuple(self.preferred_keys) + paramiko.Transport._preferred_keys
-            )
-        if self.preferred_kex:
-            paramiko.Transport._preferred_kex = (
-                tuple(self.preferred_kex) + paramiko.Transport._preferred_kex
-            )
-
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -49,6 +40,9 @@ class SFTPReader:
             "username": self.username,
             "timeout": 30,
         }
+
+        if self.preferred_keys:
+            connect_kwargs["disabled_algorithms"] = dict(keys=[], pubkeys=[])
 
         if self.pem_file:
             private_key = paramiko.RSAKey.from_private_key_file(self.pem_file)
