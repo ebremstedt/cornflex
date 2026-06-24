@@ -35,6 +35,10 @@ class SFTPReader:
             paramiko.Transport._preferred_keys = (
                 tuple(self.preferred_keys) + paramiko.Transport._preferred_keys
             )
+            for key_type in self.preferred_keys:
+                if key_type not in paramiko.Transport._key_info:
+                    from paramiko.rsakey import RSAKey
+                    paramiko.Transport._key_info[key_type] = RSAKey
         if self.preferred_kex:
             paramiko.Transport._preferred_kex = (
                 tuple(self.preferred_kex) + paramiko.Transport._preferred_kex
