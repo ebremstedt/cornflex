@@ -22,6 +22,7 @@ class SFTPReader:
     encoding: str = "utf-8"
     preferred_keys: list[str] | None = None
     preferred_kex: list[str] | None = None
+    disabled_algorithms: dict | None = None
 
     def __post_init__(self) -> None:
         self._client: Optional[paramiko.SSHClient] = None
@@ -60,6 +61,8 @@ class SFTPReader:
         else:
             connect_kwargs["password"] = self.password
 
+        if self.disabled_algorithms is not None:
+            connect_kwargs["disabled_algorithms"] = self.disabled_algorithms
         self._client.connect(**connect_kwargs)
         self._sftp = self._client.open_sftp()
 
