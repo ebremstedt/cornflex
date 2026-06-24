@@ -38,8 +38,13 @@ class SFTPReader:
             )
             for key_type in self.preferred_keys:
                 if key_type not in paramiko.Transport._key_info:
+                    from cryptography.hazmat.primitives import hashes
                     from paramiko.rsakey import RSAKey
-                    paramiko.Transport._key_info[key_type] = RSAKey
+
+                    class _LegacyRSAKey(RSAKey):
+                        HASHES = {**RSAKey.HASHES, "ssh-rsa": hashes.SHA1}
+
+                    paramiko.Transport._key_info[key_type] = _LegacyRSAKey
         if self.preferred_kex:
             paramiko.Transport._preferred_kex = (
                 tuple(self.preferred_kex) + paramiko.Transport._preferred_kex
