@@ -77,6 +77,13 @@ class SFTPReader:
         if self._client:
             self._client.close()
 
+    def __enter__(self) -> "SFTPReader":
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
     def listdir_attr(self, remote_path: str = ".") -> list[paramiko.SFTPAttributes]:
         if not self._sftp:
             raise RuntimeError("Not connected. Call connect() first.")
