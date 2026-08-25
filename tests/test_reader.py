@@ -72,6 +72,33 @@ def test_close_without_connection_does_not_raise(reader_password: SFTPReader) ->
     reader_password.close()
 
 
+# --- context manager ---
+
+
+def test_enter_calls_connect_and_returns_self(reader_password: SFTPReader) -> None:
+    reader_password.connect = MagicMock()
+    result = reader_password.__enter__()
+    reader_password.connect.assert_called_once()
+    assert result is reader_password
+
+
+def test_exit_calls_close(reader_password: SFTPReader) -> None:
+    reader_password.close = MagicMock()
+    reader_password.__exit__(None, None, None)
+    reader_password.close.assert_called_once()
+
+
+def test_with_statement_connects_and_closes() -> None:
+    reader = SFTPReader(hostname="host", username="user", password="pass")
+    reader.connect = MagicMock()
+    reader.close = MagicMock()
+    with reader as r:
+        assert r is reader
+        reader.connect.assert_called_once()
+        reader.close.assert_not_called()
+    reader.close.assert_called_once()
+
+
 # --- get_files ---
 
 
