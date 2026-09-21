@@ -223,3 +223,97 @@ def test_file_to_string_returns_none_on_error(connected_reader: SFTPReader) -> N
     connected_reader._sftp.file.side_effect = Exception("boom")
     result = connected_reader.file_to_string("bad.txt")
     assert result is None
+
+
+# --- put_bytes ---
+
+
+def test_put_bytes_raises_when_not_connected(reader_password: SFTPReader) -> None:
+    with pytest.raises(RuntimeError, match="Not connected"):
+        reader_password.put_bytes(b"hello", "file.txt")
+
+
+def test_put_bytes_writes_to_temp_then_renames(connected_reader: SFTPReader) -> None:
+    captured: dict = {}
+
+    def _capture_putfo(buffer, tmp_path) -> None:
+        captured["content"] = buffer.read()
+        captured["tmp_path"] = tmp_path
+
+    connected_reader._sftp.putfo.side_effect = _capture_putfo
+    connected_reader._sftp.stat.return_value = "final-attrs"
+
+    result = connected_reader.put_bytes(b"hello", "orders.csv", remote_path="/out")
+
+    assert captured == {"content": b"hello", "tmp_path": "/out/orders.csv.part"}
+    connected_reader._sftp.rename.assert_called_once_with(
+        "/out/orders.csv.part", "/out/orders.csv"
+    )
+    connected_reader._sftp.stat.assert_called_once_with("/out/orders.csv")
+    assert result == "final-attrs"
+
+
+# --- put_string ---
+
+
+def test_put_string_encodes_and_delegates_to_put_bytes(
+    connected_reader: SFTPReader,
+) -> None:
+    connected_reader.put_bytes = MagicMock(return_value="attrs")
+
+    result = connected_reader.put_string("héllo", "orders.csv", remote_path="/out")
+
+    connected_reader.put_bytes.assert_called_once_with(
+        content="héllo".encode("utf-8"),
+        file_name="orders.csv",
+        remote_path="/out",
+    )
+    assert result == "attrs"
+
+
+def test_put_string_respects_custom_encoding(connected_reader: SFTPReader) -> None:
+    connected_reader.put_bytes = MagicMock(return_value="attrs")
+
+    connected_reader.put_string("héllo", "orders.csv", encoding="latin-1")
+
+    connected_reader.put_bytes.assert_called_once_with(
+        content="héllo".encode("latin-1"),
+        file_name="orders.csv",
+        remote_path=".",
+    )
+
+
+# --- put_file ---
+
+
+def test_put_file_raises_when_not_connected(reader_password: SFTPReader) -> None:
+    with pytest.raises(RuntimeError, match="Not connected"):
+        reader_password.put_file("/local/orders.csv")
+
+
+def test_put_file_streams_from_disk_then_renames(connected_reader: SFTPReader) -> None:
+    connected_reader._sftp.stat.return_value = "final-attrs"
+
+    result = connected_reader.put_file("/local/orders.csv", remote_path="/out")
+
+    connected_reader._sftp.put.assert_called_once_with(
+        "/local/orders.csv", "/out/orders.csv.part"
+    )
+    connected_reader._sftp.rename.assert_called_once_with(
+        "/out/orders.csv.part", "/out/orders.csv"
+    )
+    connected_reader._sftp.stat.assert_called_once_with("/out/orders.csv")
+    assert result == "final-attrs"
+
+
+def test_put_file_uses_explicit_file_name(connected_reader: SFTPReader) -> None:
+    connected_reader.put_file(
+        "/local/orders.csv", remote_path="/out", file_name="custom.csv"
+    )
+
+    connected_reader._sftp.put.assert_called_once_with(
+        "/local/orders.csv", "/out/custom.csv.part"
+    )
+    connected_reader._sftp.rename.assert_called_once_with(
+        "/out/custom.csv.part", "/out/custom.csv"
+    )
