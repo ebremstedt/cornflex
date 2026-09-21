@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass
-from typing import Any, Generator, List, Optional
+from typing import Any, Callable, Generator, List, Optional
 
 import chardet
 import paramiko
@@ -218,3 +218,56 @@ class SFTPReader:
         except Exception as e:
             print(f"Error getting {file_name}: {e}")
             return None
+
+    def _upload_and_finalize(
+        self,
+        write_to_temp: Callable[[str], None],
+        remote_path: str,
+        file_name: str,
+    ) -> paramiko.SFTPAttributes:
+        if not self._sftp:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        final_path = f"{remote_path.rstrip('/')}/{file_name}"
+        tmp_path = f"{final_path}.part"
+        write_to_temp(tmp_path)
+        self._sftp.rename(tmp_path, final_path)
+        return self._sftp.stat(final_path)
+
+    def put_bytes(
+        self,
+        content: bytes,
+        file_name: str,
+        remote_path: str = ".",
+    ) -> paramiko.SFTPAttributes:
+        def _write(tmp_path: str) -> None:
+            with io.BytesIO(content) as buffer:
+                self._sftp.putfo(buffer, tmp_path)
+
+        return self._upload_and_finalize(_write, remote_path, file_name)
+
+    def put_string(
+        self,
+        content: str,
+        file_name: str,
+        remote_path: str = ".",
+        encoding: str = "utf-8",
+    ) -> paramiko.SFTPAttributes:
+        return self.put_bytes(
+            content=content.encode(encoding),
+            file_name=file_name,
+            remote_path=remote_path,
+        )
+
+    def put_file(
+        self,
+        local_path: str,
+        remote_path: str = ".",
+        file_name: Optional[str] = None,
+    ) -> paramiko.SFTPAttributes:
+        remote_file_name = file_name or os.path.basename(local_path)
+
+        def _write(tmp_path: str) -> None:
+            self._sftp.put(local_path, tmp_path)
+
+        return self._upload_and_finalize(_write, remote_path, remote_file_name)
