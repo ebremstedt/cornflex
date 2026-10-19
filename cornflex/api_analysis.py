@@ -274,7 +274,7 @@ def describe_api(
     hints = _pagination_hints(body, response)
     print("\n".join(f"  {h}" for h in hints) if hints else "  none detected")
 
-    schema = infer_schema(reader.get_records(path, params, records_path, max_pages))
+    schema = infer_schema(reader.get_records(path, params, records_path, max_pages, first_response=response))
     print()
     print(schema.report())
     print()

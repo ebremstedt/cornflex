@@ -8,7 +8,6 @@ from urllib.parse import urljoin, urlparse
 
 import polars as pl
 import requests
-import urllib3
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 
@@ -25,9 +24,12 @@ class APIReader:
     base_url: str
     pfx_file: Optional[str] = None
     pfx_password: Optional[str] = None
-    verify: bool | str = True  # False = skip TLS verification (curl -k), str = path to CA bundle
+    verify: bool | str = True  # False = skip TLS verification (curl -k; urllib3 warns on each request), str = path to CA bundle
     headers: dict[str, str] | None = None
     timeout: int = 60
+    # False = errors carry only "METHOD url returned status", no response body (it may echo
+    # sensitive request data). The URL itself is still included, so keep secrets out of query params.
+    include_body_in_errors: bool = True
 
     def __post_init__(self) -> None:
         self._session: Optional[requests.Session] = None
@@ -40,9 +42,6 @@ class APIReader:
         if self.pfx_file:
             cert_path, key_path = self._pfx_to_pem()
             session.cert = (cert_path, key_path)
-
-        if self.verify is False:
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         session.headers.update({"Accept": "application/json", **(self.headers or {})})
         self._session = session
@@ -66,20 +65,14 @@ class APIReader:
         self.close()
 
     def get_response(self, path: str = "", params: dict | None = None) -> requests.Response:
-        session = self._require_session()
-        url = urljoin(self.base_url.rstrip("/") + "/", path.lstrip("/")) if not path.startswith("http") else path
-
-        # never send the client certificate to a host the user didn't point us at
-        if urlparse(url).netloc != urlparse(self.base_url).netloc:
-            raise ValueError(f"Refusing to call {url}: different host than base_url")
-
-        response = session.get(url, params=params, timeout=self.timeout, verify=self.verify)
-        if response.status_code >= 400:
-            raise RuntimeError(f"GET {response.url} returned {response.status_code}: {response.text[:300]}")
-        return response
+        return self._request("GET", path, params)
 
     def get_json(self, path: str = "", params: dict | None = None) -> Any:
         return self.get_response(path, params).json()
+
+    def post_json(self, path: str = "", json: Any = None, params: dict | None = None) -> Any:
+        """POST `json` as the request body and return the parsed JSON response."""
+        return self._request("POST", path, params, json).json()
 
     def get_records(
         self,
@@ -87,8 +80,10 @@ class APIReader:
         params: dict | None = None,
         records_path: str | None = None,
         max_pages: int = 1,
+        first_response: requests.Response | None = None,
     ) -> list[dict]:
-        response = self.get_response(path, params)
+        """first_response: an already-fetched page one, to avoid requesting it again."""
+        response = first_response or self.get_response(path, params)
         body = response.json()
 
         if records_path is None:
@@ -116,6 +111,26 @@ class APIReader:
     ) -> pl.DataFrame:
         records = self.get_records(path, params, records_path, max_pages)
         return pl.from_dicts(records, infer_schema_length=None)
+
+    def _request(
+        self, method: str, path: str = "", params: dict | None = None, json: Any = None
+    ) -> requests.Response:
+        session = self._require_session()
+        url = urljoin(self.base_url.rstrip("/") + "/", path.lstrip("/")) if not path.startswith("http") else path
+
+        # never send the client certificate to a host the user didn't point us at
+        if urlparse(url).netloc != urlparse(self.base_url).netloc:
+            raise ValueError(f"Refusing to call {url}: different host than base_url")
+
+        response = session.request(
+            method, url, params=params, json=json, timeout=self.timeout, verify=self.verify
+        )
+        if response.status_code >= 400:
+            message = f"{method} {response.url} returned {response.status_code}"
+            if self.include_body_in_errors:
+                message += f": {response.text[:300]}"
+            raise RuntimeError(message)
+        return response
 
     def _require_session(self) -> requests.Session:
         if not self._session:

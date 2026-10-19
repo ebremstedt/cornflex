@@ -53,6 +53,8 @@ def test_describe_api_prints_report_and_returns_schema(capsys: pytest.CaptureFix
     assert "X-Total-Count" in out
     assert "CREATE TABLE orders" in out
     assert reader.get_records.call_args.args[2] == "data"
+    reader.get_response.assert_called_once()
+    assert reader.get_records.call_args.kwargs["first_response"] is response
 
 
 def test_find_api_docs_returns_spec_and_url() -> None:
