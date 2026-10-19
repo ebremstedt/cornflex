@@ -4,7 +4,7 @@ import pytest
 import polars as pl
 from polars.testing import assert_frame_equal
 
-from cornflex.reader import SFTPReader
+from cornflex.sftp_reader import SFTPReader
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def test_connect_raises_without_auth() -> None:
         reader.connect()
 
 
-@patch("cornflex.reader.paramiko.SSHClient")
+@patch("cornflex.sftp_reader.paramiko.SSHClient")
 def test_connect_with_password(
     mock_ssh: MagicMock, reader_password: SFTPReader
 ) -> None:
@@ -45,8 +45,8 @@ def test_connect_with_password(
     assert "pkey" not in call_kwargs
 
 
-@patch("cornflex.reader.paramiko.RSAKey.from_private_key_file")
-@patch("cornflex.reader.paramiko.SSHClient")
+@patch("cornflex.sftp_reader.paramiko.RSAKey.from_private_key_file")
+@patch("cornflex.sftp_reader.paramiko.SSHClient")
 def test_connect_with_pem(
     mock_ssh: MagicMock, mock_rsa: MagicMock, reader_pem: SFTPReader
 ) -> None:
@@ -102,25 +102,26 @@ def test_with_statement_connects_and_closes() -> None:
 # --- get_files ---
 
 
-@patch("cornflex.reader.paramiko.SSHClient")
-def test_get_files_returns_filtered(
-    mock_ssh: MagicMock, reader_password: SFTPReader
-) -> None:
-    mock_sftp = MagicMock()
-    mock_sftp.listdir.return_value = ["orders.csv", "users.csv", "config.json"]
-    mock_ssh().open_sftp.return_value = mock_sftp
+def test_get_files_raises_when_not_connected(reader_password: SFTPReader) -> None:
+    with pytest.raises(RuntimeError, match="Not connected"):
+        reader_password.get_files()
 
-    result = reader_password.get_files(remote_path="/data", file_pattern="*.csv")
+
+def test_get_files_returns_filtered(connected_reader: SFTPReader) -> None:
+    connected_reader._sftp.listdir.return_value = [
+        "orders.csv",
+        "users.csv",
+        "config.json",
+    ]
+
+    result = connected_reader.get_files(remote_path="/data", file_pattern="*.csv")
     assert result == ["orders.csv", "users.csv"]
 
 
-@patch("cornflex.reader.paramiko.SSHClient")
-def test_get_files_no_match(mock_ssh: MagicMock, reader_password: SFTPReader) -> None:
-    mock_sftp = MagicMock()
-    mock_sftp.listdir.return_value = ["config.json", "notes.txt"]
-    mock_ssh().open_sftp.return_value = mock_sftp
+def test_get_files_no_match(connected_reader: SFTPReader) -> None:
+    connected_reader._sftp.listdir.return_value = ["config.json", "notes.txt"]
 
-    result = reader_password.get_files(file_pattern="*.csv")
+    result = connected_reader.get_files(file_pattern="*.csv")
     assert result == []
 
 

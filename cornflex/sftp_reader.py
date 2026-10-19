@@ -94,12 +94,11 @@ class SFTPReader:
         remote_path: str = ".",
         file_pattern: str = "*",
     ) -> List[str]:
-        self.connect()
-        try:
-            all_files: List[str] = self._sftp.listdir(remote_path)
-            return [f for f in all_files if fnmatch.fnmatch(name=f, pat=file_pattern)]
-        finally:
-            self.close()
+        if not self._sftp:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        all_files: List[str] = self._sftp.listdir(remote_path)
+        return [f for f in all_files if fnmatch.fnmatch(name=f, pat=file_pattern)]
 
     def get_csv_file(
         self,
@@ -142,12 +141,18 @@ class SFTPReader:
         os.close(csv_fd)
 
         try:
-            with self._sftp.open(sftp_path, "rb") as remote_file, open(zip_path, "wb") as zip_file:
+            with (
+                self._sftp.open(sftp_path, "rb") as remote_file,
+                open(zip_path, "wb") as zip_file,
+            ):
                 shutil.copyfileobj(remote_file, zip_file, length=1024 * 1024)
 
             with zipfile.ZipFile(zip_path) as zf:
                 name = zf.namelist()[0]
-                with zf.open(name) as zf_entry, open(csv_path, "w", encoding="utf-8") as csv_file:
+                with (
+                    zf.open(name) as zf_entry,
+                    open(csv_path, "w", encoding="utf-8") as csv_file,
+                ):
                     for line in io.TextIOWrapper(zf_entry, encoding=self.encoding):
                         csv_file.write(line)
 
