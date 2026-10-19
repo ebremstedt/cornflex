@@ -94,12 +94,11 @@ class SFTPReader:
         remote_path: str = ".",
         file_pattern: str = "*",
     ) -> List[str]:
-        self.connect()
-        try:
-            all_files: List[str] = self._sftp.listdir(remote_path)
-            return [f for f in all_files if fnmatch.fnmatch(name=f, pat=file_pattern)]
-        finally:
-            self.close()
+        if not self._sftp:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        all_files: List[str] = self._sftp.listdir(remote_path)
+        return [f for f in all_files if fnmatch.fnmatch(name=f, pat=file_pattern)]
 
     def get_csv_file(
         self,
