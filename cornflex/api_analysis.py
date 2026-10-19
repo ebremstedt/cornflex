@@ -10,7 +10,9 @@ import requests
 
 from cornflex.api_reader import APIReader, find_record_arrays
 
-_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$")
+_DATETIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$"
+)
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
 _NUMERIC_STR_RE = re.compile(r"^-?\d+(\.\d+)?$")
@@ -128,15 +130,18 @@ class Schema:
 
     def timestamp_columns(self) -> list[str]:
         return [
-            p for p, i in self.fields.items()
+            p
+            for p, i in self.fields.items()
             if "[]" not in p and {"datetime-string", "date-string"} & set(i.types)
         ]
 
     def child_tables(self) -> list[str]:
         """Arrays of objects - candidates for their own table."""
         return sorted(
-            p for p, i in self.fields.items()
-            if "array" in i.types and any(other.startswith(p + "[].") for other in self.fields)
+            p
+            for p, i in self.fields.items()
+            if "array" in i.types
+            and any(other.startswith(p + "[].") for other in self.fields)
         )
 
     def mixed_type_fields(self) -> list[str]:
@@ -145,7 +150,8 @@ class Schema:
     def columns(self) -> list[str]:
         """Paths that would become columns of the parent table (leaves, not inside arrays)."""
         return sorted(
-            p for p in self.fields
+            p
+            for p in self.fields
             if "[]" not in p and not any(o.startswith(p + ".") for o in self.fields)
         )
 
@@ -194,7 +200,9 @@ class Schema:
                 null_pct = f"{100 * (i.nulls + max(n - i.seen, 0)) / n:.0f}%"
             distinct = len(i.distinct) or "-"
             examples = ", ".join(short(e) for e in i.examples)
-            out.append(f"{path:<42} {types:<24} {null_pct:>6} {distinct!s:>9}  {examples}")
+            out.append(
+                f"{path:<42} {types:<24} {null_pct:>6} {distinct!s:>9}  {examples}"
+            )
 
         out += [
             "",
@@ -251,14 +259,20 @@ def describe_api(
     if records_path is None:
         records_path = max(arrays, key=lambda a: len(a[1]))[0] if arrays else "$"
 
-    print(f"GET {response.url} -> {response.status_code} "
-          f"{response.headers.get('Content-Type', '?')} "
-          f"({len(response.content)} bytes)")
+    print(
+        f"GET {response.url} -> {response.status_code} "
+        f"{response.headers.get('Content-Type', '?')} "
+        f"({len(response.content)} bytes)"
+    )
 
     print("\nTop level:")
     if isinstance(body, dict):
         for key, value in body.items():
-            size = f"({len(value)} items)" if isinstance(value, (list, dict)) else repr(value)[:60]
+            size = (
+                f"({len(value)} items)"
+                if isinstance(value, (list, dict))
+                else repr(value)[:60]
+            )
             print(f"  {key:<30} {type(value).__name__:<8} {size}")
     else:
         print(f"  {type(body).__name__} with {len(body)} items")
@@ -274,7 +288,11 @@ def describe_api(
     hints = _pagination_hints(body, response)
     print("\n".join(f"  {h}" for h in hints) if hints else "  none detected")
 
-    schema = infer_schema(reader.get_records(path, params, records_path, max_pages, first_response=response))
+    schema = infer_schema(
+        reader.get_records(
+            path, params, records_path, max_pages, first_response=response
+        )
+    )
     print()
     print(schema.report())
     print()
@@ -288,9 +306,15 @@ def find_api_docs(reader: APIReader) -> tuple[str, dict] | None:
     root = f"{parsed.scheme}://{parsed.netloc}"
     base_path = parsed.path.rstrip("/")
     candidates = [
-        "/openapi.json", "/swagger.json", "/v3/api-docs", "/v2/api-docs",
-        "/api-docs", "/swagger/v1/swagger.json", "/api/openapi.json",
-        f"{base_path}/openapi.json", f"{base_path}/swagger.json",
+        "/openapi.json",
+        "/swagger.json",
+        "/v3/api-docs",
+        "/v2/api-docs",
+        "/api-docs",
+        "/swagger/v1/swagger.json",
+        "/api/openapi.json",
+        f"{base_path}/openapi.json",
+        f"{base_path}/swagger.json",
     ]
     for candidate in dict.fromkeys(candidates):
         try:
@@ -303,7 +327,9 @@ def find_api_docs(reader: APIReader) -> tuple[str, dict] | None:
 
 
 def _pagination_hints(body: Any, response: requests.Response) -> list[str]:
-    pattern = re.compile(r"next|prev|page|cursor|offset|limit|total|count|links?|more|size|token", re.I)
+    pattern = re.compile(
+        r"next|prev|page|cursor|offset|limit|total|count|links?|more|size|token", re.I
+    )
     hints = []
     if isinstance(body, dict):
         for key, value in body.items():

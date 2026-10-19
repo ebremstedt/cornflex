@@ -37,7 +37,9 @@ def test_ddl_lists_columns() -> None:
     assert "id" in ddl and "BIGINT NOT NULL" in ddl
 
 
-def test_describe_api_prints_report_and_returns_schema(capsys: pytest.CaptureFixture) -> None:
+def test_describe_api_prints_report_and_returns_schema(
+    capsys: pytest.CaptureFixture,
+) -> None:
     response = MagicMock(status_code=200, url="https://api/x", content=b"{}")
     response.headers = {"Content-Type": "application/json", "X-Total-Count": "2"}
     response.json.return_value = {"data": RECORDS, "next": None}

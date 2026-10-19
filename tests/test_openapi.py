@@ -14,7 +14,9 @@ SPEC = {
     "servers": [{"url": "https://x/api"}],
     "paths": {
         "/v1/persons": {
-            "parameters": [{"name": "X-Trace", "in": "header", "schema": {"type": "string"}}],
+            "parameters": [
+                {"name": "X-Trace", "in": "header", "schema": {"type": "string"}}
+            ],
             "post": {
                 "tags": ["person"],
                 "summary": "List persons",
@@ -23,7 +25,9 @@ SPEC = {
                 "requestBody": {
                     "required": True,
                     "content": {
-                        "application/json": {"schema": {"$ref": "#/components/schemas/Req"}}
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Req"}
+                        }
                     },
                 },
                 "responses": {
@@ -46,7 +50,11 @@ SPEC = {
     },
     "components": {
         "parameters": {
-            "Page": {"name": "page", "in": "query", "schema": {"type": "integer", "minimum": 0}}
+            "Page": {
+                "name": "page",
+                "in": "query",
+                "schema": {"type": "integer", "minimum": 0},
+            }
         },
         "schemas": {
             "Req": {

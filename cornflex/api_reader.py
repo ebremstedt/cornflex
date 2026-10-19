@@ -24,7 +24,9 @@ class APIReader:
     base_url: str
     pfx_file: Optional[str] = None
     pfx_password: Optional[str] = None
-    verify: bool | str = True  # False = skip TLS verification (curl -k; urllib3 warns on each request), str = path to CA bundle
+    verify: bool | str = (
+        True  # False = skip TLS verification (curl -k; urllib3 warns on each request), str = path to CA bundle
+    )
     headers: dict[str, str] | None = None
     timeout: int = 60
     # False = errors carry only "METHOD url returned status", no response body (it may echo
@@ -64,13 +66,17 @@ class APIReader:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
-    def get_response(self, path: str = "", params: dict | None = None) -> requests.Response:
+    def get_response(
+        self, path: str = "", params: dict | None = None
+    ) -> requests.Response:
         return self._request("GET", path, params)
 
     def get_json(self, path: str = "", params: dict | None = None) -> Any:
         return self.get_response(path, params).json()
 
-    def post_json(self, path: str = "", json: Any = None, params: dict | None = None) -> Any:
+    def post_json(
+        self, path: str = "", json: Any = None, params: dict | None = None
+    ) -> Any:
         """POST `json` as the request body and return the parsed JSON response."""
         return self._request("POST", path, params, json).json()
 
@@ -116,14 +122,23 @@ class APIReader:
         self, method: str, path: str = "", params: dict | None = None, json: Any = None
     ) -> requests.Response:
         session = self._require_session()
-        url = urljoin(self.base_url.rstrip("/") + "/", path.lstrip("/")) if not path.startswith("http") else path
+        url = (
+            urljoin(self.base_url.rstrip("/") + "/", path.lstrip("/"))
+            if not path.startswith("http")
+            else path
+        )
 
         # never send the client certificate to a host the user didn't point us at
         if urlparse(url).netloc != urlparse(self.base_url).netloc:
             raise ValueError(f"Refusing to call {url}: different host than base_url")
 
         response = session.request(
-            method, url, params=params, json=json, timeout=self.timeout, verify=self.verify
+            method,
+            url,
+            params=params,
+            json=json,
+            timeout=self.timeout,
+            verify=self.verify,
         )
         if response.status_code >= 400:
             message = f"{method} {response.url} returned {response.status_code}"
@@ -143,7 +158,9 @@ class APIReader:
         password = self.pfx_password.encode() if self.pfx_password else None
         key, cert, extra = pkcs12.load_key_and_certificates(data, password)
         if key is None or cert is None:
-            raise ValueError(f"{self.pfx_file} must contain both a certificate and a private key")
+            raise ValueError(
+                f"{self.pfx_file} must contain both a certificate and a private key"
+            )
 
         cert_pem = cert.public_bytes(serialization.Encoding.PEM)
         for extra_cert in extra or []:

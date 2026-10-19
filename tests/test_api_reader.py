@@ -84,7 +84,9 @@ def test_connect_sets_default_and_custom_headers(session: MagicMock) -> None:
     )
 
 
-def test_connect_without_pfx_sets_no_cert(reader: APIReader, session: MagicMock) -> None:
+def test_connect_without_pfx_sets_no_cert(
+    reader: APIReader, session: MagicMock
+) -> None:
     session.cert = None
     reader.connect()
     assert session.cert is None
@@ -141,7 +143,9 @@ def test_context_manager_connects_and_closes(session: MagicMock) -> None:
 # --- not connected ---
 
 
-@pytest.mark.parametrize("method", ["get_response", "get_json", "post_json", "get_records", "get_dataframe"])
+@pytest.mark.parametrize(
+    "method", ["get_response", "get_json", "post_json", "get_records", "get_dataframe"]
+)
 def test_methods_raise_when_not_connected(reader: APIReader, method: str) -> None:
     with pytest.raises(RuntimeError, match="Not connected"):
         getattr(reader, method)("orders")
@@ -180,13 +184,17 @@ def test_get_response_allows_absolute_url_on_same_host(
     assert session.request.call_args.args[1] == f"{BASE}/orders?page=2"
 
 
-def test_get_response_refuses_other_host(connected: APIReader, session: MagicMock) -> None:
+def test_get_response_refuses_other_host(
+    connected: APIReader, session: MagicMock
+) -> None:
     with pytest.raises(ValueError, match="different host"):
         connected.get_response("https://evil.example.org/steal")
     session.request.assert_not_called()
 
 
-def test_get_response_raises_on_http_error(connected: APIReader, session: MagicMock) -> None:
+def test_get_response_raises_on_http_error(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response("nope", status=404)
     with pytest.raises(RuntimeError, match="GET .* returned 404"):
         connected.get_response("orders")
@@ -217,10 +225,16 @@ def test_post_json_passes_params_timeout_and_verify(session: MagicMock) -> None:
     session.request.return_value = make_response({})
     reader.post_json("x", json={}, params={"v": 1})
     kwargs = session.request.call_args.kwargs
-    assert (kwargs["params"], kwargs["timeout"], kwargs["verify"]) == ({"v": 1}, 7, "/ca.pem")
+    assert (kwargs["params"], kwargs["timeout"], kwargs["verify"]) == (
+        {"v": 1},
+        7,
+        "/ca.pem",
+    )
 
 
-def test_post_json_raises_on_http_error(connected: APIReader, session: MagicMock) -> None:
+def test_post_json_raises_on_http_error(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response("bad", status=400)
     with pytest.raises(RuntimeError, match="POST .* returned 400"):
         connected.post_json("x", json={})
@@ -232,7 +246,9 @@ def test_post_json_refuses_other_host(connected: APIReader, session: MagicMock) 
     session.request.assert_not_called()
 
 
-def test_error_includes_body_by_default(connected: APIReader, session: MagicMock) -> None:
+def test_error_includes_body_by_default(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response("identity 19121212-1212", status=400)
     with pytest.raises(RuntimeError, match="19121212-1212"):
         connected.post_json("x", json={})
@@ -257,13 +273,17 @@ def test_get_records_top_level_list(connected: APIReader, session: MagicMock) ->
     assert connected.get_records("orders") == [{"id": 1}, {"id": 2}]
 
 
-def test_get_records_autodetects_largest_array(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_autodetects_largest_array(
+    connected: APIReader, session: MagicMock
+) -> None:
     body = {"meta": [{"x": 1}], "data": [{"id": 1}, {"id": 2}, {"id": 3}]}
     session.request.return_value = make_response(body)
     assert connected.get_records("orders") == [{"id": 1}, {"id": 2}, {"id": 3}]
 
 
-def test_get_records_explicit_records_path(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_explicit_records_path(
+    connected: APIReader, session: MagicMock
+) -> None:
     body = {"data": {"items": [{"id": 1}]}, "other": [{"x": 1}, {"x": 2}]}
     session.request.return_value = make_response(body)
     assert connected.get_records("orders", records_path="data.items") == [{"id": 1}]
@@ -279,25 +299,37 @@ def test_get_records_single_object_becomes_one_record(
 # --- pagination ---
 
 
-def test_get_records_follows_body_next_key(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_follows_body_next_key(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.side_effect = [
         make_response({"items": [{"id": 1}], "next": f"{BASE}/orders?page=2"}),
-        make_response({"items": [{"id": 2}], "next": None}, url=f"{BASE}/orders?page=2"),
+        make_response(
+            {"items": [{"id": 2}], "next": None}, url=f"{BASE}/orders?page=2"
+        ),
     ]
     assert connected.get_records("orders", max_pages=5) == [{"id": 1}, {"id": 2}]
     assert session.request.call_count == 2
 
 
-def test_get_records_follows_links_next_href(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_follows_links_next_href(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.side_effect = [
-        make_response({"items": [{"id": 1}], "links": {"next": {"href": "/v1/orders?page=2"}}}),
+        make_response(
+            {"items": [{"id": 1}], "links": {"next": {"href": "/v1/orders?page=2"}}}
+        ),
         make_response({"items": [{"id": 2}]}, url=f"{BASE}/orders?page=2"),
     ]
     assert connected.get_records("orders", max_pages=2) == [{"id": 1}, {"id": 2}]
-    assert session.request.call_args.args[1] == "https://api.example.com/v1/orders?page=2"
+    assert (
+        session.request.call_args.args[1] == "https://api.example.com/v1/orders?page=2"
+    )
 
 
-def test_get_records_follows_link_header(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_follows_link_header(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.side_effect = [
         make_response([{"id": 1}], links={"next": {"url": f"{BASE}/orders?page=2"}}),
         make_response([{"id": 2}], url=f"{BASE}/orders?page=2"),
@@ -305,7 +337,9 @@ def test_get_records_follows_link_header(connected: APIReader, session: MagicMoc
     assert connected.get_records("orders", max_pages=2) == [{"id": 1}, {"id": 2}]
 
 
-def test_get_records_stops_at_max_pages(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_stops_at_max_pages(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response(
         {"items": [{"id": 1}], "next": f"{BASE}/orders?page=2"}
     )
@@ -324,13 +358,17 @@ def test_get_records_default_reads_only_first_page(
     assert session.request.call_count == 1
 
 
-def test_get_records_stops_when_no_next_link(connected: APIReader, session: MagicMock) -> None:
+def test_get_records_stops_when_no_next_link(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response({"items": [{"id": 1}]})
     assert connected.get_records("orders", max_pages=10) == [{"id": 1}]
     assert session.request.call_count == 1
 
 
-def test_pagination_does_not_leave_base_host(connected: APIReader, session: MagicMock) -> None:
+def test_pagination_does_not_leave_base_host(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response(
         {"items": [{"id": 1}], "next": "https://evil.example.org/page2"}
     )
@@ -342,7 +380,9 @@ def test_get_records_uses_first_response_without_refetching(
     connected: APIReader, session: MagicMock
 ) -> None:
     first = make_response({"items": [{"id": 1}], "next": f"{BASE}/orders?page=2"})
-    session.request.return_value = make_response({"items": [{"id": 2}]}, url=f"{BASE}/orders?page=2")
+    session.request.return_value = make_response(
+        {"items": [{"id": 2}]}, url=f"{BASE}/orders?page=2"
+    )
     records = connected.get_records("orders", max_pages=2, first_response=first)
     assert records == [{"id": 1}, {"id": 2}]
     assert session.request.call_count == 1  # only page two
@@ -351,7 +391,9 @@ def test_get_records_uses_first_response_without_refetching(
 # --- get_dataframe ---
 
 
-def test_get_dataframe_returns_polars_frame(connected: APIReader, session: MagicMock) -> None:
+def test_get_dataframe_returns_polars_frame(
+    connected: APIReader, session: MagicMock
+) -> None:
     session.request.return_value = make_response(
         {"data": [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]}
     )
@@ -364,7 +406,10 @@ def test_get_dataframe_returns_polars_frame(connected: APIReader, session: Magic
 
 def test_find_record_arrays_reports_paths() -> None:
     body = {"a": [{"x": 1}], "b": {"c": [{"y": 1}, {"y": 2}]}, "d": [1, 2]}
-    assert dict(find_record_arrays(body)) == {"a": [{"x": 1}], "b.c": [{"y": 1}, {"y": 2}]}
+    assert dict(find_record_arrays(body)) == {
+        "a": [{"x": 1}],
+        "b.c": [{"y": 1}, {"y": 2}],
+    }
 
 
 def test_extract_records_root_and_nested() -> None:

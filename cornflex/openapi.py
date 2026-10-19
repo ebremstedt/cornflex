@@ -1,10 +1,10 @@
 """Turn an OpenAPI 3 spec (e.g. Spring's /v3/api-docs) into readable text.
 
-    spec = api.get_json("/v3/api-docs")
-    print(describe_openapi(spec))                                  # every endpoint, grouped by tag
-    print(find_endpoints(spec, "person"))                          # search
-    print(describe_endpoint(spec, "/v1/persons-list-request", "post"))  # request + responses
-    print(describe_schema(spec, "PersonsListRequest"))             # one model from components
+spec = api.get_json("/v3/api-docs")
+print(describe_openapi(spec))                                  # every endpoint, grouped by tag
+print(find_endpoints(spec, "person"))                          # search
+print(describe_endpoint(spec, "/v1/persons-list-request", "post"))  # request + responses
+print(describe_schema(spec, "PersonsListRequest"))             # one model from components
 """
 
 from typing import Any
@@ -20,21 +20,27 @@ def list_endpoints(spec: dict) -> list[dict]:
         for method in _METHODS:
             if method in item:
                 op = item[method]
-                endpoints.append({
-                    "method": method.upper(),
-                    "path": path,
-                    "summary": _first_line(op.get("summary") or op.get("description") or ""),
-                    "operation_id": op.get("operationId", ""),
-                    "tags": op.get("tags") or ["(untagged)"],
-                })
+                endpoints.append(
+                    {
+                        "method": method.upper(),
+                        "path": path,
+                        "summary": _first_line(
+                            op.get("summary") or op.get("description") or ""
+                        ),
+                        "operation_id": op.get("operationId", ""),
+                        "tags": op.get("tags") or ["(untagged)"],
+                    }
+                )
     return endpoints
 
 
 def describe_openapi(spec: dict) -> str:
     """Title, version, servers and all endpoints grouped by tag."""
     info = spec.get("info", {})
-    lines = [f"{info.get('title', '?')}  version {info.get('version', '?')}  "
-             f"(OpenAPI {spec.get('openapi', '?')})"]
+    lines = [
+        f"{info.get('title', '?')}  version {info.get('version', '?')}  "
+        f"(OpenAPI {spec.get('openapi', '?')})"
+    ]
     for server in spec.get("servers", []):
         lines.append(f"  server: {server.get('url')}")
 
@@ -49,7 +55,9 @@ def describe_openapi(spec: dict) -> str:
             lines.append(f"  {ep['method']:<7} {ep['path']:<50} {ep['summary']}")
 
     schemas = spec.get("components", {}).get("schemas", {})
-    lines.append(f"\n{len(schemas)} schemas in components: {', '.join(sorted(schemas))}")
+    lines.append(
+        f"\n{len(schemas)} schemas in components: {', '.join(sorted(schemas))}"
+    )
     return "\n".join(lines)
 
 
@@ -62,8 +70,14 @@ def find_endpoints(spec: dict, text: str) -> str:
             if method not in item:
                 continue
             op = item[method]
-            haystack = " ".join([path, op.get("summary", ""), op.get("description", ""),
-                                 op.get("operationId", "")]).lower()
+            haystack = " ".join(
+                [
+                    path,
+                    op.get("summary", ""),
+                    op.get("description", ""),
+                    op.get("operationId", ""),
+                ]
+            ).lower()
             if needle in haystack:
                 summary = _first_line(op.get("summary") or op.get("description") or "")
                 lines.append(f"{method.upper():<7} {path:<50} {summary}")
@@ -74,33 +88,43 @@ def describe_endpoint(spec: dict, path: str, method: str = "get") -> str:
     """Parameters, request body and responses for one operation, with $refs resolved."""
     item = spec.get("paths", {}).get(path)
     if item is None:
-        raise ValueError(f"No endpoint '{path}' in spec. Use find_endpoints(spec, text) to search.")
+        raise ValueError(
+            f"No endpoint '{path}' in spec. Use find_endpoints(spec, text) to search."
+        )
     op = item.get(method.lower())
     if op is None:
         available = ", ".join(m.upper() for m in _METHODS if m in item) or "none"
-        raise ValueError(f"'{path}' has no {method.upper()} operation (available: {available})")
+        raise ValueError(
+            f"'{path}' has no {method.upper()} operation (available: {available})"
+        )
     lines = [f"{method.upper()} {path}"]
     if op.get("summary"):
         lines.append(f"  {op['summary']}")
     if op.get("description") and op.get("description") != op.get("summary"):
         lines.append(f"  {_first_line(op['description'], 200)}")
 
-    params = [_resolve(spec, p) for p in item.get("parameters", []) + op.get("parameters", [])]
+    params = [
+        _resolve(spec, p) for p in item.get("parameters", []) + op.get("parameters", [])
+    ]
     if params:
         lines.append("\nParameters  (* = required)")
         for p in params:
             star = "*" if p.get("required") else ""
             label = _type_label(spec, p.get("schema", {}))
-            lines.append(f"  {p['name'] + star:<30} in={p.get('in', '?'):<7} {label:<30} "
-                         f"{_first_line(p.get('description', ''))}")
+            lines.append(
+                f"  {p['name'] + star:<30} in={p.get('in', '?'):<7} {label:<30} "
+                f"{_first_line(p.get('description', ''))}"
+            )
 
     if "requestBody" in op:
         body = _resolve(spec, op["requestBody"])
         required = "required" if body.get("required") else "optional"
         for content_type, media in body.get("content", {}).items():
             schema = media.get("schema", {})
-            lines.append(f"\nRequest body  {content_type}, {required}  -> {_type_label(spec, schema)}"
-                         f"{_constraints(_merged(spec, schema))}")
+            lines.append(
+                f"\nRequest body  {content_type}, {required}  -> {_type_label(spec, schema)}"
+                f"{_constraints(_merged(spec, schema))}"
+            )
             lines += _schema_lines(spec, schema, indent=1, seen=_seen_for(schema))
 
     lines.append("\nResponses")
@@ -111,8 +135,10 @@ def describe_endpoint(spec: dict, path: str, method: str = "get") -> str:
             lines.append(f"  {code}  {_first_line(response.get('description', ''))}")
         for content_type, media in content.items():
             schema = media.get("schema", {})
-            lines.append(f"  {code}  {content_type}  -> {_type_label(spec, schema)}  "
-                         f"{_first_line(response.get('description', ''))}")
+            lines.append(
+                f"  {code}  {content_type}  -> {_type_label(spec, schema)}  "
+                f"{_first_line(response.get('description', ''))}"
+            )
             lines += _schema_lines(spec, schema, indent=2, seen=_seen_for(schema))
     return "\n".join(lines)
 
@@ -121,7 +147,9 @@ def describe_schema(spec: dict, name: str) -> str:
     """One model from components/schemas as a field tree."""
     ref = f"#/components/schemas/{name}"
     if name not in spec.get("components", {}).get("schemas", {}):
-        raise ValueError(f"No schema '{name}' in components. describe_openapi(spec) lists them.")
+        raise ValueError(
+            f"No schema '{name}' in components. describe_openapi(spec) lists them."
+        )
     lines = [name]
     description = _resolve(spec, {"$ref": ref}).get("description")
     if description:
@@ -133,6 +161,7 @@ def describe_schema(spec: dict, name: str) -> str:
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+
 
 def _first_line(text: str, width: int = 70) -> str:
     line = (text or "").strip().splitlines()[0] if (text or "").strip() else ""
@@ -188,8 +217,11 @@ def _type_label(spec: dict, schema: dict) -> str:
         target = _resolve(spec, schema)
         if "$ref" in target:
             return name  # unresolvable
-        if target.get("type") in (None, "object") and ("properties" in target or "allOf" in target
-                                                       or target.get("type") == "object"):
+        if target.get("type") in (None, "object") and (
+            "properties" in target
+            or "allOf" in target
+            or target.get("type") == "object"
+        ):
             return name
         return f"{name} ({_type_label(spec, target)})"
 
@@ -197,7 +229,9 @@ def _type_label(spec: dict, schema: dict) -> str:
         return _type_label(spec, schema["allOf"][0])
     for key in ("oneOf", "anyOf"):
         if key in schema:
-            return f"{key}(" + ", ".join(_type_label(spec, o) for o in schema[key]) + ")"
+            return (
+                f"{key}(" + ", ".join(_type_label(spec, o) for o in schema[key]) + ")"
+            )
 
     t = schema.get("type")
     if isinstance(t, list):  # OpenAPI 3.1: type: [string, "null"]
@@ -208,7 +242,10 @@ def _type_label(spec: dict, schema: dict) -> str:
 
     if t == "array" or "items" in schema:
         label = f"array<{_type_label(spec, schema.get('items', {}))}>"
-    elif isinstance(schema.get("additionalProperties"), dict) and "properties" not in schema:
+    elif (
+        isinstance(schema.get("additionalProperties"), dict)
+        and "properties" not in schema
+    ):
         label = f"map<string, {_type_label(spec, schema['additionalProperties'])}>"
     else:
         if t is None and ("properties" in schema or "allOf" in schema):
@@ -218,7 +255,12 @@ def _type_label(spec: dict, schema: dict) -> str:
             label += f"({schema['format']})"
         if "enum" in schema:
             values = [str(v) for v in schema["enum"]]
-            label += " enum[" + ", ".join(values[:6]) + (", …" if len(values) > 6 else "") + "]"
+            label += (
+                " enum["
+                + ", ".join(values[:6])
+                + (", …" if len(values) > 6 else "")
+                + "]"
+            )
     if nullable:
         label += " | null"
     return label
@@ -241,7 +283,9 @@ def _has_fields(spec: dict, schema: dict) -> bool:
     return bool(s.get("properties")) or "oneOf" in s or "anyOf" in s
 
 
-def _schema_lines(spec: dict, schema: dict, indent: int, seen: frozenset = frozenset()) -> list[str]:
+def _schema_lines(
+    spec: dict, schema: dict, indent: int, seen: frozenset = frozenset()
+) -> list[str]:
     """Field tree of a schema. '*' marks required fields. Nested objects are indented."""
     pad = "  " * indent
     if indent > _MAX_DEPTH:
@@ -259,7 +303,9 @@ def _schema_lines(spec: dict, schema: dict, indent: int, seen: frozenset = froze
                 ref = _inner_ref(option)
                 if ref and ref in seen:
                     continue
-                lines += _schema_lines(spec, option, indent + 2, seen | ({ref} if ref else set()))
+                lines += _schema_lines(
+                    spec, option, indent + 2, seen | ({ref} if ref else set())
+                )
             return lines
 
     required = set(s.get("required", []))
@@ -274,7 +320,9 @@ def _schema_lines(spec: dict, schema: dict, indent: int, seen: frozenset = froze
         if ref and ref in seen:
             lines.append(f"{pad}  (recursive: {ref.rsplit('/', 1)[-1]}, shown above)")
         elif _has_fields(spec, prop):
-            lines += _schema_lines(spec, prop, indent + 1, seen | ({ref} if ref else set()))
+            lines += _schema_lines(
+                spec, prop, indent + 1, seen | ({ref} if ref else set())
+            )
     return lines
 
 
@@ -299,9 +347,15 @@ def _constraints(schema: dict) -> str:
     if not isinstance(schema, dict):
         return ""
     parts = []
-    for key, text in (("minItems", "min {} items"), ("maxItems", "max {} items"),
-                      ("minLength", "min length {}"), ("maxLength", "max length {}"),
-                      ("minimum", ">= {}"), ("maximum", "<= {}"), ("pattern", "pattern {}")):
+    for key, text in (
+        ("minItems", "min {} items"),
+        ("maxItems", "max {} items"),
+        ("minLength", "min length {}"),
+        ("maxLength", "max length {}"),
+        ("minimum", ">= {}"),
+        ("maximum", "<= {}"),
+        ("pattern", "pattern {}"),
+    ):
         if key in schema:
             parts.append(text.format(schema[key]))
     return f" [{', '.join(parts)}]" if parts else ""

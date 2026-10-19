@@ -108,7 +108,11 @@ def test_get_files_raises_when_not_connected(reader_password: SFTPReader) -> Non
 
 
 def test_get_files_returns_filtered(connected_reader: SFTPReader) -> None:
-    connected_reader._sftp.listdir.return_value = ["orders.csv", "users.csv", "config.json"]
+    connected_reader._sftp.listdir.return_value = [
+        "orders.csv",
+        "users.csv",
+        "config.json",
+    ]
 
     result = connected_reader.get_files(remote_path="/data", file_pattern="*.csv")
     assert result == ["orders.csv", "users.csv"]
