@@ -70,6 +70,18 @@ reader.close()
 
 ---
 
+### `open_file(file_name, remote_path)`
+
+Opens a remote file for reading in binary mode and yields the handle, read ahead in the background so streaming is as fast as a full download. The file is never loaded into memory as a whole, so a large file can be parsed as it arrives. Errors are raised, and the handle closes when the block ends.
+
+```python
+import xml.etree.ElementTree as ET
+
+with reader.open_file("feed.xml", remote_path="/exports") as file:
+    for _, element in ET.iterparse(file, events=("end",)):
+        ...
+```
+
 ### `get_xml_file_to_string(file_name, remote_path)`
 
 Fetches an XML file and returns it as a string.

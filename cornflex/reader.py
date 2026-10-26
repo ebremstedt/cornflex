@@ -4,6 +4,8 @@ import os
 import shutil
 import tempfile
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, List, Optional
 
@@ -176,6 +178,17 @@ class SFTPReader:
                     os.unlink(path)
                 except FileNotFoundError:
                     pass
+
+    @contextmanager
+    def open_file(
+        self, file_name: str, remote_path: str = "."
+    ) -> Iterator[paramiko.SFTPFile]:
+        if not self._sftp:
+            raise RuntimeError("Not connected. Call connect() first.")
+        remote_file_path = f"{remote_path.rstrip('/')}/{file_name}"
+        with self._sftp.file(remote_file_path, "rb") as file:
+            file.prefetch()
+            yield file
 
     def get_xml_file_to_string(
         self,
