@@ -72,7 +72,7 @@ reader.close()
 
 ### `open_file(file_name, remote_path)`
 
-Opens a remote file for reading in binary mode and yields the handle, read ahead in the background so streaming is as fast as a full download. The file is never loaded into memory as a whole, so a large file can be parsed as it arrives. Errors are raised, and the handle closes when the block ends.
+Yields a remote file as a binary stream, so a large file can be parsed as it arrives instead of loaded whole. At most `max_requests` blocks (default 32) are read ahead, which keeps the buffer small. Errors are raised, and the file closes when the block ends.
 
 ```python
 import xml.etree.ElementTree as ET
