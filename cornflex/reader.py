@@ -4,6 +4,8 @@ import os
 import shutil
 import tempfile
 import zipfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, List, Optional
 
@@ -176,6 +178,21 @@ class SFTPReader:
                     os.unlink(path)
                 except FileNotFoundError:
                     pass
+
+    @contextmanager
+    def open_file(
+        self, file_name: str, remote_path: str = ".", max_requests: int = 32
+    ) -> Iterator[paramiko.SFTPFile]:
+        """Yield the remote file as a binary stream, so it can be parsed as it
+        arrives instead of loaded whole. Reads ahead at most `max_requests`
+        blocks (32 KB each), which keeps the buffer small. Raises on error and
+        closes the file when the block ends."""
+        if not self._sftp:
+            raise RuntimeError("Not connected. Call connect() first.")
+        remote_file_path = f"{remote_path.rstrip('/')}/{file_name}"
+        with self._sftp.file(remote_file_path, "rb") as file:
+            file.prefetch(max_concurrent_requests=max_requests)
+            yield file
 
     def get_xml_file_to_string(
         self,

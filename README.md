@@ -70,6 +70,18 @@ reader.close()
 
 ---
 
+### `open_file(file_name, remote_path)`
+
+Yields a remote file as a binary stream, so a large file can be parsed as it arrives instead of loaded whole. At most `max_requests` blocks (default 32) are read ahead, which keeps the buffer small. Errors are raised, and the file closes when the block ends.
+
+```python
+import xml.etree.ElementTree as ET
+
+with reader.open_file("feed.xml", remote_path="/exports") as file:
+    for _, element in ET.iterparse(file, events=("end",)):
+        ...
+```
+
 ### `get_xml_file_to_string(file_name, remote_path)`
 
 Fetches an XML file and returns it as a string.

@@ -163,6 +163,64 @@ def test_get_csv_file_returns_none_on_error(connected_reader: SFTPReader) -> Non
     assert result is None
 
 
+# --- open_file ---
+
+
+def test_open_file_raises_when_not_connected(reader_password: SFTPReader) -> None:
+    with pytest.raises(RuntimeError, match="Not connected"):
+        with reader_password.open_file("file.xml"):
+            pass
+
+
+def test_open_file_yields_the_prefetched_binary_handle(
+    connected_reader: SFTPReader,
+) -> None:
+    mock_file = MagicMock()
+    mock_file.__enter__ = lambda s: s
+    mock_file.__exit__ = MagicMock(return_value=False)
+    connected_reader._sftp.file.return_value = mock_file
+
+    with connected_reader.open_file("feed.xml", remote_path="/exports/") as file:
+        assert file is mock_file
+        mock_file.prefetch.assert_called_once_with(max_concurrent_requests=32)
+
+    connected_reader._sftp.file.assert_called_once_with("/exports/feed.xml", "rb")
+    mock_file.__exit__.assert_called_once()
+
+
+def test_open_file_caps_the_read_ahead(connected_reader: SFTPReader) -> None:
+    mock_file = MagicMock()
+    mock_file.__enter__ = lambda s: s
+    mock_file.__exit__ = MagicMock(return_value=False)
+    connected_reader._sftp.file.return_value = mock_file
+
+    with connected_reader.open_file("feed.xml", max_requests=4):
+        mock_file.prefetch.assert_called_once_with(max_concurrent_requests=4)
+
+
+def test_open_file_raises_when_the_file_cannot_be_opened(
+    connected_reader: SFTPReader,
+) -> None:
+    connected_reader._sftp.file.side_effect = FileNotFoundError("missing.xml")
+    with pytest.raises(FileNotFoundError):
+        with connected_reader.open_file("missing.xml"):
+            pass
+
+
+def test_open_file_closes_the_handle_when_the_reader_raises(
+    connected_reader: SFTPReader,
+) -> None:
+    mock_file = MagicMock()
+    mock_file.__enter__ = lambda s: s
+    mock_file.__exit__ = MagicMock(return_value=False)
+    connected_reader._sftp.file.return_value = mock_file
+
+    with pytest.raises(ValueError):
+        with connected_reader.open_file("feed.xml"):
+            raise ValueError("parse failed")
+    mock_file.__exit__.assert_called_once()
+
+
 # --- get_xml_file_to_string ---
 
 
